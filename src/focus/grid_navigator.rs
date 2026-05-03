@@ -32,7 +32,7 @@ impl GridNavigator {
         Self {
             focused_index: 0, // Start with first tile focused
             columns: grid.columns,
-            tile_sizes: grid.tiles.iter().map(|t| t.tile_size).collect(),
+            tile_sizes: grid.tiles.iter().map(|t| t.size).collect(),
         }
     }
     

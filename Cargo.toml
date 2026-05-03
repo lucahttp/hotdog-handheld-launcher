@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gpui = "0.2"
+gpui = { git = "https://github.com/zed-industries/zed" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit"] }
+gpui-component = { git = "https://github.com/longbridge/gpui-component" }
 gilrs = "0.11"
 rusqlite = { version = "0.31", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
@@ -14,5 +16,6 @@ log = "0.4"
 env_logger = "0.11"
 dirs = "5.0"
 once_cell = "1.19"
+[target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 windows-sys = { version = "0.52", features = ["Win32_System_Threading"] }

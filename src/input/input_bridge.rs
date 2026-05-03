@@ -1,6 +1,6 @@
 //! Input bridge - gilrs gamepad events to navigation actions
 
-use gilrs::{Button, EventType, GilRs};
+use gilrs::{Button, EventType, Gilrs};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -27,14 +27,14 @@ pub enum Direction {
 
 /// Input bridge state
 pub struct InputBridge {
-    gilrs: Arc<Mutex<Option<GilRs>>>,
+    gilrs: Arc<Mutex<Option<Gilrs>>>,
     event_tx: mpsc::UnboundedSender<NavAction>,
 }
 
 impl InputBridge {
     /// Create a new input bridge
     pub fn new() -> Self {
-        let gilrs = GilRs::new().ok();
+        let gilrs = Gilrs::new().ok();
         let (event_tx, _event_rx) = mpsc::unbounded_channel();
 
         Self {
@@ -54,14 +54,14 @@ impl InputBridge {
         let gilrs = self.gilrs.lock().unwrap();
         gilrs
             .as_ref()
-            .map(|g| g.gamepads().count() > 0)
+            .map(|g: &Gilrs| g.gamepads().count() > 0)
             .unwrap_or(false)
     }
 
     /// Poll for events - call this in your event loop
     pub fn poll_event(&mut self) -> Option<NavAction> {
         let mut gilrs_guard = self.gilrs.lock().unwrap();
-        let gilrs = match gilrs_guard.as_mut() {
+        let gilrs: &mut Gilrs = match gilrs_guard.as_mut() {
             Some(g) => g,
             None => return None,
         };

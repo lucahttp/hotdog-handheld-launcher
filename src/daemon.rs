@@ -28,7 +28,8 @@ pub fn run(is_shell_mode: bool) -> Result<()> {
     log::info!("Shell replacement mode: {}", is_shell_mode);
 
     // In shell mode, this would run indefinitely
-    // For now, we just return Ok to allow compilation
+    // Start the GPUI application loop
+    crate::app::init()?;
 
     Ok(())
 }

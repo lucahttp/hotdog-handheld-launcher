@@ -3,6 +3,7 @@
 use anyhow::Result;
 use rusqlite::{Connection, params};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 /// A game entry in the database
 #[derive(Debug, Clone)]
@@ -38,18 +39,19 @@ impl Game {
 
 /// Repository for game operations
 pub struct GameRepository {
-    conn: Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl GameRepository {
     /// Create a new repository
-    pub fn new(conn: Connection) -> Self {
+    pub fn new(conn: Arc<Mutex<Connection>>) -> Self {
         Self { conn }
     }
     
     /// Insert a new game
     pub fn insert(&self, game: &Game) -> Result<i64> {
-        self.conn.execute(
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
             "INSERT INTO games (title, path, icon_path, category, tile_size, sort_order)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
@@ -62,12 +64,12 @@ impl GameRepository {
             ],
         )?;
         
-        Ok(self.conn.last_insert_rowid())
+        Ok(conn.last_insert_rowid())
     }
     
     /// Update an existing game
     pub fn update(&self, game: &Game) -> Result<()> {
-        self.conn.execute(
+        self.conn.lock().unwrap().execute(
             "UPDATE games SET 
                 title = ?1, path = ?2, icon_path = ?3, 
                 category = ?4, tile_size = ?5, sort_order = ?6,
@@ -89,13 +91,14 @@ impl GameRepository {
     
     /// Delete a game
     pub fn delete(&self, id: i64) -> Result<()> {
-        self.conn.execute("DELETE FROM games WHERE id = ?1", params![id])?;
+        self.conn.lock().unwrap().execute("DELETE FROM games WHERE id = ?1", params![id])?;
         Ok(())
     }
     
     /// Get a game by ID
     pub fn get_by_id(&self, id: i64) -> Result<Option<Game>> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT id, title, path, icon_path, category, tile_size, sort_order
              FROM games WHERE id = ?1",
         )?;
@@ -119,7 +122,8 @@ impl GameRepository {
     
     /// Get all games
     pub fn get_all(&self) -> Result<Vec<Game>> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT id, title, path, icon_path, category, tile_size, sort_order
              FROM games ORDER BY sort_order, title",
         )?;
@@ -144,7 +148,8 @@ impl GameRepository {
     
     /// Get games by category
     pub fn get_by_category(&self, category: &str) -> Result<Vec<Game>> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT id, title, path, icon_path, category, tile_size, sort_order
              FROM games WHERE category = ?1 ORDER BY sort_order, title",
         )?;
@@ -169,7 +174,8 @@ impl GameRepository {
     
     /// Search games by title
     pub fn search(&self, query: &str) -> Result<Vec<Game>> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT id, title, path, icon_path, category, tile_size, sort_order
              FROM games WHERE title LIKE ?1 ORDER BY sort_order, title",
         )?;
@@ -203,7 +209,7 @@ impl GameRepository {
             ("Settings", "C:\\Windows\\System32\\SettingsHost.exe", "1x1"),
         ];
         
-        for (title, path, size) in sample_games {
+        for (title, path, size) in &sample_games {
             let game = Game {
                 id: 0,
                 title: title.to_string(),

@@ -10,11 +10,12 @@ pub use app_repository::{AppRepository, AppState};
 
 use rusqlite::Connection;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use anyhow::Result;
 
 /// Database manager
 pub struct Database {
-    conn: Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl Database {
@@ -32,8 +33,8 @@ impl Database {
         let conn = Connection::open(&db_path)?;
         conn.execute("PRAGMA foreign_keys = ON", [])?;
         
-        let db = Self { conn };
-        init_schema(&db.conn)?;
+        let db = Self { conn: Arc::new(Mutex::new(conn)) };
+        init_schema(&db.conn.lock().unwrap())?;
         
         Ok(db)
     }
@@ -48,11 +49,11 @@ impl Database {
     
     /// Get a game repository
     pub fn games(&self) -> GameRepository {
-        GameRepository::new(self.conn.duplicate())
+        GameRepository::new(Arc::clone(&self.conn))
     }
     
     /// Get an app repository
     pub fn app(&self) -> AppRepository {
-        AppRepository::new(self.conn.duplicate())
+        AppRepository::new(Arc::clone(&self.conn))
     }
 }

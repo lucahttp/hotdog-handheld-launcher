@@ -1,9 +1,14 @@
 //! Tab Bar - Horizontal navigation tabs (header)
 
-use gpui::{h_flex, div, Element, px};
+use gpui::{
+    div, App, Div, ElementId, InteractiveElement, IntoElement,
+    ParentElement, RenderOnce, StatefulInteractiveElement, StyleRefinement, Styled, Window,
+    px,
+};
 use crate::ui::theme::theme;
 
 /// Navigation tab
+#[derive(Clone)]
 pub struct Tab {
     pub id: String,
     pub label: String,
@@ -26,46 +31,75 @@ impl Tab {
 }
 
 /// Tab bar component (horizontal header)
+#[derive(IntoElement)]
 pub struct TabBar {
-    pub tabs: Vec<Tab>,
+    id: ElementId,
+    base: Div,
+    style: StyleRefinement,
+    tabs: Vec<Tab>,
 }
 
 impl TabBar {
-    pub fn new() -> Self {
+    pub fn new(id: impl Into<ElementId>, active_tab: &str) -> Self {
         let tabs = vec![
-            Tab::new("home", "home").active(),
+            Tab::new("bing", "bing"),
+            Tab::new("home", "home"),
+            Tab::new("social", "social"),
             Tab::new("games", "games"),
-            Tab::new("emulators", "emulators"),
-            Tab::new("settings", "settings"),
+            Tab::new("apps", "apps"),
         ];
         
-        Self { tabs }
-    }
-    
-    /// Build the GPUI element
-    pub fn build(&self) -> impl Element {
-        let t = theme();
+        let mut tabs = tabs.into_iter().map(|mut t| {
+            if t.id == active_tab {
+                t.is_active = true;
+            }
+            t
+        }).collect();
         
-        h_flex()
-            .h_flex()
-            .gap_4()
-            .px_6()
-            .py_4()
-            .bg(t.background)
-            .children(self.tabs.iter().map(|tab| {
-                let text_color = if tab.is_active { t.text_primary } else { t.text_inactive };
-                let font_size = if tab.is_active { 18.0 } else { 14.0 };
-                
-                div()
-                    .text_color(text_color)
-                    .font_size(px(font_size))
-                    .child(tab.label.clone())
-            }))
+        Self {
+            id: id.into(),
+            base: div().flex().flex_row(),
+            style: StyleRefinement::default(),
+            tabs,
+        }
     }
 }
 
-impl Default for TabBar {
-    fn default() -> Self {
-        Self::new()
+impl InteractiveElement for TabBar {
+    fn interactivity(&mut self) -> &mut gpui::Interactivity {
+        self.base.interactivity()
+    }
+}
+
+impl StatefulInteractiveElement for TabBar {}
+
+impl Styled for TabBar {
+    fn style(&mut self) -> &mut StyleRefinement {
+        &mut self.style
+    }
+}
+
+impl RenderOnce for TabBar {
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+        let t = theme();
+        
+        self.base
+            .id(self.id)
+            .gap(px(32.0))
+            .pl(px(64.0))  // Metro UI significant left margin
+            .pt(px(48.0))  // Top margin
+            .pb(px(24.0))  // Bottom margin before tiles
+            .bg(t.background)
+            .items_end()   // Align texts to bottom baseline
+            .children(self.tabs.into_iter().map(|tab| {
+                let text_color = if tab.is_active { t.text_primary } else { t.text_inactive };
+                let font_size = if tab.is_active { 48.0 } else { 32.0 };
+                
+                div()
+                    .text_color(text_color)
+                    .text_size(px(font_size))
+                    //.font_weight(gpui::FontWeight::LIGHT) // Metro uses light fonts
+                    .child(tab.label)
+            }))
     }
 }

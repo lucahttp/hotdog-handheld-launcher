@@ -1,10 +1,14 @@
-//! Shell replacement integration - Windows registry and explorer management
+#![allow(unused)]
 
 use anyhow::Result;
+
+#[cfg(target_os = "windows")]
 use winreg::enums::*;
+#[cfg(target_os = "windows")]
 use winreg::RegKey;
 
 /// Register this executable as the Windows shell (per-user, no admin required)
+#[cfg(target_os = "windows")]
 pub fn install_shell() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let winlogon = hkcu.open_subkey_with_flags(
@@ -21,7 +25,14 @@ pub fn install_shell() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
+pub fn install_shell() -> Result<()> {
+    log::warn!("Shell registration is only supported on Windows.");
+    Ok(())
+}
+
 /// Remove this executable from shell registration, restore explorer.exe
+#[cfg(target_os = "windows")]
 pub fn uninstall_shell() -> Result<()> {
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let winlogon = hkcu.open_subkey_with_flags(
@@ -32,6 +43,12 @@ pub fn uninstall_shell() -> Result<()> {
     winlogon.set_value("Shell", &"explorer.exe")?;
     
     log::info!("Shell unregistered, explorer.exe restored");
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn uninstall_shell() -> Result<()> {
+    log::warn!("Shell unregistration is only supported on Windows.");
     Ok(())
 }
 

@@ -2,6 +2,7 @@
 
 use super::launcher::{launch_game, GameHandle, LaunchOptions};
 use std::sync::{Arc, Mutex};
+use anyhow::Result;
 
 /// Lifecycle state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

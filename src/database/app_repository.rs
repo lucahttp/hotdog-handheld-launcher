@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
+use std::sync::{Arc, Mutex};
 
 /// Application state
 #[derive(Debug, Clone)]
@@ -12,18 +13,19 @@ pub struct AppState {
 
 /// Repository for app state operations
 pub struct AppRepository {
-    conn: Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl AppRepository {
     /// Create a new repository
-    pub fn new(conn: Connection) -> Self {
+    pub fn new(conn: Arc<Mutex<Connection>>) -> Self {
         Self { conn }
     }
     
     /// Get the current app state
     pub fn get_state(&self) -> Result<AppState> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT last_focused_game, last_tab FROM app_state WHERE id = 1",
         )?;
         
@@ -45,7 +47,7 @@ impl AppRepository {
     
     /// Save the app state
     pub fn save_state(&self, state: &AppState) -> Result<()> {
-        self.conn.execute(
+        self.conn.lock().unwrap().execute(
             "UPDATE app_state SET 
                 last_focused_game = ?1, last_tab = ?2
              WHERE id = 1",
@@ -57,7 +59,7 @@ impl AppRepository {
     
     /// Update last focused game
     pub fn set_last_focused_game(&self, game_id: i64) -> Result<()> {
-        self.conn.execute(
+        self.conn.lock().unwrap().execute(
             "UPDATE app_state SET last_focused_game = ?1 WHERE id = 1",
             params![game_id],
         )?;
@@ -66,7 +68,7 @@ impl AppRepository {
     
     /// Update last tab
     pub fn set_last_tab(&self, tab: &str) -> Result<()> {
-        self.conn.execute(
+        self.conn.lock().unwrap().execute(
             "UPDATE app_state SET last_tab = ?1 WHERE id = 1",
             params![tab],
         )?;
