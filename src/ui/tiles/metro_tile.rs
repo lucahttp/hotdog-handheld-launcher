@@ -1,7 +1,7 @@
 //! Metro Tile component - Individual game/app tile
 
 use gpui::{
-    div, prelude::FluentBuilder as _, App, Div, ElementId, FocusHandle,
+    div, prelude::FluentBuilder as _, App, Div, ElementId,
     InteractiveElement, IntoElement, ParentElement, RenderOnce, StatefulInteractiveElement,
     StyleRefinement, Styled, Window, px, svg,
 };
@@ -25,13 +25,12 @@ pub struct MetroTile {
     title: String,
     icon_path: Option<String>,
     tile_size: TileSize,
-    focus_handle: FocusHandle,
-    /// Override focus state (for keyboard navigation - None = use GPUI focus)
+    /// Override focus state for keyboard navigation
     is_focused_override: Option<bool>,
 }
 
 impl MetroTile {
-    pub fn new(id: impl Into<ElementId>, title: &str, focus_handle: FocusHandle) -> Self {
+    pub fn new(id: impl Into<ElementId>, title: &str) -> Self {
         Self {
             id: id.into(),
             base: div(),
@@ -39,7 +38,6 @@ impl MetroTile {
             title: title.to_string(),
             icon_path: None,
             tile_size: TileSize::Small1x1,
-            focus_handle,
             is_focused_override: None,
         }
     }
@@ -76,11 +74,11 @@ impl Styled for MetroTile {
 }
 
 impl RenderOnce for MetroTile {
-    fn render(self, window: &mut Window, _cx: &mut App) -> impl IntoElement {
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let t = theme();
         
-        // Use keyboard navigation focus override if set, otherwise use GPUI focus
-        let is_focused = self.is_focused_override.unwrap_or_else(|| self.focus_handle.is_focused(window));
+        // Use keyboard navigation focus override if set, otherwise no focus by default
+        let is_focused = self.is_focused_override.unwrap_or(false);
         
         let (width, height) = match self.tile_size {
             TileSize::Small1x1 => (150.0, 150.0),
@@ -123,7 +121,6 @@ impl RenderOnce for MetroTile {
         // Focus animation: scale up + glow when focused
         self.base
             .id(self.id)
-            .track_focus(&self.focus_handle)
             .w(px(width))
             .h(px(height))
             .bg(bg_color)

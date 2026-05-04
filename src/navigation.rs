@@ -1,23 +1,38 @@
 //! Navigation state machine for controller/keyboard UI navigation.
 //!
 //! Consolidates all focus state into a single struct with pure transition methods.
-//! The layout is:
+//! The home layout is (is used to show last opened games and pinned menu items, is a template for other tabs):
 //!   ┌──────────────────────────────────────────┐
 //!   │ Tab0  Tab1  Tab2  Tab3  ...  Tab7        │  ← FocusSection::Tabs
 //!   ├──────────────────────────────────────────┤
 //!   │ Left[0]   │                              │
-//!   │ Left[1]   │   Center / Hero              │  ← FocusSection::Hero
+//!   │ Left[1]   │   Center (HeroTile)          │  ← FocusSection::Hero
 //!   │ Left[2]   │                              │
-//!   │ Left[3]   │   RightColumn                │
 //!   ├──────────────────────────────────────────┤
-//!   │ GameCarousel[0..N]                       │  ← FocusSection::GamesCarousel
+//!   │ Buttons icons and what they do           │  ← (A) Select
 //!   └──────────────────────────────────────────┘
+
+
+
+
+//! The game library layout is:
+//!   ┌──────────────────────────────────────────┐
+//!   │ Sort by                          page    │  ← FocusSection::Tabs
+//!   ├──────────────────────────────────────────┤
+//!   │                                          │
+//!   │ GameCarousel[0..N]                       │  ← FocusSection::GamesCarousel
+//!   │                                          │
+//!   ├──────────────────────────────────────────┤
+//!   │ Buttons icons and what they do           │  ← (A) Select, (B) Back, (X) More Options, (Y) Search
+//!   └──────────────────────────────────────────┘
+
+
+
 
 use crate::input::NavAction;
 
 pub const TAB_COUNT: usize = 8;
-pub const MAX_LEFT_COL: usize = 4; // 3 menu tiles + 1 hero tile
-pub const CAROUSEL_SIZE: usize = 10;
+pub const MAX_LEFT_COL: usize = 3; // Open Tray, My Pins, Recent (menu tiles)
 
 /// Which top-level section has input focus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,12 +43,12 @@ pub enum FocusSection {
 }
 
 /// Position within the hero content area of the home tab.
-/// `LeftColumn(n)` where n=0..3 = Open Tray, My Pins, Recent, Xbox 360 hero.
+/// LeftColumn(0..2) = menu tiles (Open Tray, My Pins, Recent).
+/// Center = hero banner tile (index 3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HeroPos {
     LeftColumn(usize),
     Center,
-    Right,
 }
 
 /// Consolidated focus state. All navigation "where is the cursor" state lives here.
@@ -152,10 +167,8 @@ impl FocusState {
                     }
                 }
                 HeroPos::Center => {
+                    // Center → last menu tile
                     self.hero = HeroPos::LeftColumn(MAX_LEFT_COL - 1);
-                }
-                HeroPos::Right => {
-                    self.hero = HeroPos::Center;
                 }
             },
             FocusSection::GamesCarousel => {
@@ -179,13 +192,12 @@ impl FocusState {
                     if idx < MAX_LEFT_COL - 1 {
                         self.hero = HeroPos::LeftColumn(idx + 1);
                     } else {
+                        // Last menu tile → hero banner
                         self.hero = HeroPos::Center;
                     }
                 }
                 HeroPos::Center => {
-                    self.hero = HeroPos::Right;
-                }
-                HeroPos::Right => {
+                    // Hero banner → next tab
                     if self.tab < TAB_COUNT - 1 {
                         self.section = FocusSection::Tabs;
                         self.tab += 1;
@@ -194,9 +206,8 @@ impl FocusState {
                 }
             },
             FocusSection::GamesCarousel => {
-                if self.carousel < CAROUSEL_SIZE - 1 {
-                    self.carousel += 1;
-                }
+                // carousel_max is enforced by app layer after handle() returns
+                self.carousel += 1;
             }
         }
         NavEffect::None
@@ -259,8 +270,7 @@ impl FocusState {
         if self.section == FocusSection::Hero {
             match self.hero {
                 HeroPos::LeftColumn(idx) => Some(idx),
-                HeroPos::Center => Some(3),
-                HeroPos::Right => Some(3),
+                HeroPos::Center => Some(3), // hero banner tile
             }
         } else {
             None

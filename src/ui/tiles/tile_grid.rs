@@ -1,9 +1,10 @@
 //! Tile Grid - Asymmetric grid layout for Metro tiles
 
 use gpui::{
-    div, App, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, StatefulInteractiveElement, StyleRefinement, Styled, Window,
-    px, FocusHandle,
+    div, App, Div, ElementId, InteractiveElement,
+    IntoElement, ParentElement, RenderOnce, StatefulInteractiveElement,
+    StyleRefinement, Styled, Window,
+    px,
 };
 use super::metro_tile::{MetroTile, TileSize};
 
@@ -11,7 +12,6 @@ pub struct TileData {
     pub title: String,
     pub icon_path: Option<String>,
     pub size: TileSize,
-    pub focus_handle: FocusHandle,
 }
 
 #[derive(IntoElement)]
@@ -66,7 +66,7 @@ impl RenderOnce for TileGrid {
         
         for (i, t) in self.tiles.iter().enumerate() {
             let is_tile_focused = focused == Some(i);
-            let mut tile = MetroTile::new(i, &t.title, t.focus_handle.clone())
+            let mut tile = MetroTile::new(i, &t.title)
                 .size(t.size)
                 .with_focus(is_tile_focused);
             if let Some(path) = &t.icon_path {

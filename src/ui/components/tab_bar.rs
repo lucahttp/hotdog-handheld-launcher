@@ -1,9 +1,8 @@
 //! Tab Bar - Horizontal navigation tabs (header)
 
 use gpui::{
-    div, ClickEvent, ElementId, EventEmitter, InteractiveElement, IntoElement,
-    ParentElement, Render, StatefulInteractiveElement, StyleRefinement, Styled, Window, px,
-    Context,
+    div, ClickEvent, ElementId, EventEmitter, InteractiveElement, IntoElement, ParentElement, Render, StatefulInteractiveElement, StyleRefinement,
+    Styled, Window, px, Context,
 };
 use crate::ui::theme::theme;
 
@@ -40,14 +39,14 @@ pub struct TabBar {
 impl TabBar {
     pub fn new(id: impl Into<ElementId>, active_tab: &str) -> Self {
         let tabs = vec![
-            Tab::new("bing", "bing"),
-            Tab::new("home", "home"),
-            Tab::new("social", "social"),
-            Tab::new("games", "games"),
-            Tab::new("tv & movies", "tv & movies"),
-            Tab::new("music", "music"),
-            Tab::new("apps", "apps"),
-            Tab::new("settings", "settings"),
+            Tab::new("bing", "BING"),
+            Tab::new("home", "HOME"),
+            Tab::new("social", "SOCIAL"),
+            Tab::new("games", "GAMES"),
+            Tab::new("tv & movies", "TV & MOVIES"),
+            Tab::new("music", "MUSIC"),
+            Tab::new("apps", "APPS"),
+            Tab::new("settings", "SETTINGS"),
         ];
         
         let active_tab_index = tabs.iter().position(|t| t.id == active_tab).unwrap_or(1);
@@ -133,39 +132,3 @@ impl Render for TabBar {
 }
 
 impl EventEmitter<TabSelectedEvent> for TabBar {}
-
-impl IntoElement for TabBar {
-    type Element = gpui::Stateful<gpui::Div>;
-    
-    fn into_element(self) -> Self::Element {
-        let t = theme();
-        
-        div()
-            .id(self.id)
-            .gap(px(32.0))
-            .pl(px(90.0))
-            .pt(px(60.0))
-            .pb(px(24.0))
-            .bg(t.background)
-            .items_end()
-            .flex()
-            .flex_row()
-            .children(self.tabs.into_iter().enumerate().map(|(i, tab)| {
-                let is_active = i == self.active_tab_index;
-                let text_color = if is_active { t.text_primary } else { t.text_inactive };
-                let font_size = if is_active { 48.0 } else { 32.0 };
-                
-                div()
-                    .id(tab.id.clone())
-                    .text_color(text_color)
-                    .text_size(px(font_size))
-                    .child(tab.label)
-            }))
-    }
-}
-
-impl InteractiveElement for TabBar {
-    fn interactivity(&mut self) -> &mut gpui::Interactivity {
-        panic!("InteractiveElement not implemented for TabBar - use Render/IntoElement instead")
-    }
-}

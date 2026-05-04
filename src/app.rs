@@ -93,6 +93,15 @@ fn sample_games_for_launch() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
+fn installed_game_to_item(game: &crate::scanner::InstalledGame, id: usize) -> GameItem {
+    GameItem {
+        id,
+        title: game.name.clone(),
+        icon_path: game.icon_path.clone(),
+        rating: None,
+    }
+}
+
 // ── Main application entity ──────────────────────────────────────────
 
 pub struct HandheldLauncher {
@@ -114,10 +123,10 @@ impl HandheldLauncher {
         let focus_handle = cx.focus_handle();
 
         let tiles = vec![
-            TileData { title: "Open Tray".into(), icon_path: Some("assets/icons/disc.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
-            TileData { title: "My Pins".into(), icon_path: Some("assets/icons/pin.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
-            TileData { title: "Recent".into(), icon_path: Some("assets/icons/clock.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
-            TileData { title: "Xbox 360: Metro UI".into(), icon_path: None, size: TileSize::HeroTile, focus_handle: cx.focus_handle() },
+            TileData { title: "Open Tray".into(), icon_path: Some("assets/icons/disc.svg".into()), size: TileSize::MenuTile },
+            TileData { title: "My Pins".into(), icon_path: Some("assets/icons/pin.svg".into()), size: TileSize::MenuTile },
+            TileData { title: "Recent".into(), icon_path: Some("assets/icons/clock.svg".into()), size: TileSize::MenuTile },
+            TileData { title: "Xbox 360: Metro UI".into(), icon_path: None, size: TileSize::HeroTile },
         ];
 
         let sample_games = sample_game_items();
@@ -140,6 +149,11 @@ impl HandheldLauncher {
             log::info!("TabBar clicked → tab {}", event.0);
             this.active_tab = event.0;
             this.nav.tab = event.0;
+            // Clamp carousel when switching to games tab
+            if event.0 == GAMES_TAB {
+                let count = this.display_games().len();
+                this.nav.carousel = this.nav.carousel.min(count.saturating_sub(1));
+            }
             cx.notify();
         }).detach();
 
@@ -157,16 +171,31 @@ impl HandheldLauncher {
 
     /// Entry point for ALL navigation input (keyboard + gamepad).
     pub fn handle_nav_action(&mut self, action: NavAction, cx: &mut Context<Self>) {
-        // Guard: only allow Down → GamesCarousel when on the games tab
-        if action == NavAction::NavigateDown
-            && self.nav.section() == FocusSection::Hero
-            && self.active_tab != GAMES_TAB
-        {
-            cx.notify();
-            return;
+        // Guard: only allow Hero <-> GamesCarousel transitions on the games tab
+        if self.active_tab != GAMES_TAB {
+            if (action == NavAction::NavigateDown && self.nav.section() == FocusSection::Hero)
+                || (action == NavAction::NavigateUp && self.nav.section() == FocusSection::GamesCarousel)
+            {
+                cx.notify();
+                return;
+            }
         }
 
         let effect = self.nav.handle(action);
+
+        // Clamp carousel index to actual game count (dynamic, not hardcoded CAROUSEL_SIZE)
+        let game_count = if self.active_tab == GAMES_TAB {
+            if !self.is_scanning && !self.games.is_empty() {
+                self.games.len()
+            } else {
+                self.sample_games.len()
+            }
+        } else {
+            0
+        };
+        if game_count > 0 {
+            self.nav.carousel = self.nav.carousel.min(game_count.saturating_sub(1));
+        }
 
         // Apply side effects from the navigation action
         match effect {
@@ -174,17 +203,45 @@ impl HandheldLauncher {
                 self.active_tab = tab;
             }
             NavEffect::LaunchGame(idx) => {
-                let games = sample_games_for_launch();
-                if idx < games.len() {
-                    let (name, exe) = (games[idx].0, games[idx].1);
-                    log::info!("Launching: {} @ {}", name, exe);
-                    match crate::process::launch_game(crate::process::LaunchOptions {
-                        exe_path: exe.to_string(),
-                        working_dir: None,
-                        args: vec![],
-                    }) {
-                        Ok(h) => log::info!("Launched {} (PID {})", name, h.pid),
-                        Err(e) => log::error!("Launch failed {}: {}", name, e),
+                if idx < self.games.len() {
+                    let game = &self.games[idx];
+                    match &game.launch_command {
+                        Some(cmd) if cmd.starts_with("steam://") || cmd.starts_with("com.epicgames.") => {
+                            // URL-launch via shell (steam://, epic://)
+                            log::info!("Launching via URL: {} = {}", game.name, cmd);
+                            match open::that(cmd) {
+                                Ok(()) => log::info!("URL launch initiated for {}", game.name),
+                                Err(e) => log::error!("URL launch failed {}: {}", game.name, e),
+                            }
+                        }
+                        Some(exe) if exe.to_lowercase().ends_with(".exe") => {
+                            log::info!("Launching scanned game: {} @ {}", game.name, exe);
+                            match crate::process::launch_game(crate::process::LaunchOptions {
+                                exe_path: exe.clone(),
+                                working_dir: Some(game.install_dir.clone()),
+                                args: vec![],
+                            }) {
+                                Ok(h) => log::info!("Launched {} (PID {})", game.name, h.pid),
+                                Err(e) => log::error!("Launch failed {}: {}", game.name, e),
+                            }
+                        }
+                        _ => {
+                            log::warn!("No usable launch path for {} ({:?})", game.name, game.launch_command);
+                        }
+                    }
+                } else {
+                    let games = sample_games_for_launch();
+                    if idx < games.len() {
+                        let (name, exe) = (games[idx].0, games[idx].1);
+                        log::info!("Launching fallback sample game: {} @ {}", name, exe);
+                        match crate::process::launch_game(crate::process::LaunchOptions {
+                            exe_path: exe.to_string(),
+                            working_dir: None,
+                            args: vec![],
+                        }) {
+                            Ok(h) => log::info!("Launched {} (PID {})", name, h.pid),
+                            Err(e) => log::error!("Launch failed {}: {}", name, e),
+                        }
                     }
                 }
             }
@@ -258,13 +315,14 @@ impl Render for HandheldLauncher {
 // ── Per-tab render helpers ───────────────────────────────────────────
 
 impl HandheldLauncher {
-    fn display_games(&self) -> &[GameItem] {
-        // Use sample games as fallback when scanning or empty
+    fn display_games(&self) -> Vec<GameItem> {
         if !self.is_scanning && !self.games.is_empty() {
-            // Return sample games as proxy for now (real conversion would map InstalledGame → GameItem)
-            &self.sample_games
+            self.games.iter()
+                .enumerate()
+                .map(|(i, game)| installed_game_to_item(game, i))
+                .collect()
         } else {
-            &self.sample_games
+            self.sample_games.clone()
         }
     }
 
@@ -274,7 +332,6 @@ impl HandheldLauncher {
             title: td.title.clone(),
             icon_path: td.icon_path.clone(),
             size: td.size,
-            focus_handle: td.focus_handle.clone(),
         }).collect();
 
         div()
@@ -300,7 +357,7 @@ impl HandheldLauncher {
                     .child("sort by title (A-Z)"),
             )
             .child(
-                GameCarousel::new("games-carousel", games.to_vec())
+                GameCarousel::new("games-carousel", games)
                     .selected(sel.min(count.saturating_sub(1)))
                     .with_focused(if cf { Some(sel.min(count.saturating_sub(1))) } else { None }),
             )
@@ -326,27 +383,24 @@ impl HandheldLauncher {
             )
     }
 
-    fn render_fallback(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_fallback(&self, _cx: &mut Context<Self>) -> impl IntoElement {
         let tiles_to_render = if self.is_scanning {
             vec![TileData {
                 title: "Scanning games...".into(),
                 icon_path: None,
                 size: TileSize::HeroTile,
-                focus_handle: cx.focus_handle(),
             }]
         } else if self.games.is_empty() {
             vec![TileData {
                 title: "No games found".into(),
                 icon_path: None,
                 size: TileSize::HeroTile,
-                focus_handle: cx.focus_handle(),
             }]
         } else {
             self.games.iter().map(|g| TileData {
                 title: g.name.clone().into(),
                 icon_path: g.icon_path.clone().map(Into::into),
                 size: TileSize::MenuTile,
-                focus_handle: cx.focus_handle(),
             }).collect()
         };
         div().flex_grow().child(TileGrid::new("tile-grid", tiles_to_render))
