@@ -2,7 +2,8 @@
 
 use gpui::{
     div, prelude::FluentBuilder, App, ElementId, InteractiveElement,
-    IntoElement, ParentElement, RenderOnce, StyleRefinement, Styled, Window, px,
+    IntoElement, ParentElement, RenderOnce, StatefulInteractiveElement,
+    StyleRefinement, Styled, Window, px,
 };
 use crate::ui::theme::theme;
 
@@ -67,14 +68,25 @@ impl RenderOnce for GameCarousel {
         
         let games = self.games.clone();
         
+        // Scroll offset: shift items left so selected stays visible.
+        // Item width = 150 + 16 gap (before selected) or 200 (selected itself).
+        // Clamp so we don't scroll past the last items.
+        let item_step: f64 = 150.0 + 16.0; // compact item + gap
+        let max_scroll = (games.len().saturating_sub(1) as f64 * item_step).max(0.0);
+        let scroll_offset = (selected as f64 * item_step).clamp(0.0, max_scroll);
+        
         div()
             .id(self.id)
-            .flex()
-            .flex_row()
-            .gap(px(16.0))
-            .pl(px(90.0))
-            .items_start()
-            .children(games.into_iter().enumerate().map(|(i, game)| {
+            .overflow_x_scroll()
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap(px(16.0))
+                    .pl(px(90.0))
+                    .ml(px(-scroll_offset as f32))
+                    .items_start()
+                    .children(games.into_iter().enumerate().map(|(i, game)| {
                 let is_selected = i == selected;
                 let is_focused = focused == Some(i);
                 // Show keyboard focus highlight (white border) even if not selected
@@ -146,6 +158,6 @@ impl RenderOnce for GameCarousel {
                         el.shadow_lg()
                     })
                     .child(box_content)
-            }))
+            })))
     }
 }

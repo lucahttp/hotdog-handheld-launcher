@@ -5,6 +5,10 @@
 //! Directional input (keyboard + gamepad) arrives via `NavAction` and is dispatched
 //! through `self.nav.handle(action)` which returns an optional `NavEffect`.
 
+use std::borrow::Cow;
+use std::fs;
+use std::path::PathBuf;
+
 use anyhow::Result;
 use gpui::*;
 use tokio::sync::mpsc;
@@ -14,6 +18,33 @@ use crate::ui::{ButtonHintBar, TileGrid, TileData, TileSize, theme, GameCarousel
 use crate::ui::components::tab_bar::{TabBar, TabSelectedEvent};
 use crate::input::NavAction;
 use crate::scanner::GameScanner;
+
+// ── Asset source for SVG loading ────────────────────────────────────
+
+struct FileAssetSource {
+    base: PathBuf,
+}
+
+impl AssetSource for FileAssetSource {
+    fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
+        let full = self.base.join(path);
+        match fs::read(&full) {
+            Ok(data) => Ok(Some(Cow::Owned(data))),
+            Err(_) => Ok(None),
+        }
+    }
+
+    fn list(&self, path: &str) -> gpui::Result<Vec<SharedString>> {
+        let full = self.base.join(path);
+        match fs::read_dir(&full) {
+            Ok(entries) => Ok(entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().into_owned().into())
+                .collect()),
+            Err(_) => Ok(vec![]),
+        }
+    }
+}
 
 // ── Tab definitions ──────────────────────────────────────────────────
 
@@ -227,6 +258,16 @@ impl Render for HandheldLauncher {
 // ── Per-tab render helpers ───────────────────────────────────────────
 
 impl HandheldLauncher {
+    fn display_games(&self) -> &[GameItem] {
+        // Use sample games as fallback when scanning or empty
+        if !self.is_scanning && !self.games.is_empty() {
+            // Return sample games as proxy for now (real conversion would map InstalledGame → GameItem)
+            &self.sample_games
+        } else {
+            &self.sample_games
+        }
+    }
+
     fn render_home(&self) -> impl IntoElement {
         let focus = self.nav.hero_focused_tile();
         let home_tiles: Vec<TileData> = self.tiles.iter().map(|td| TileData {
@@ -245,6 +286,8 @@ impl HandheldLauncher {
         let t = theme();
         let cf = self.nav.carousel_focused();
         let sel = self.nav.carousel;
+        let games = self.display_games();
+        let count = games.len();
 
         div()
             .flex_col()
@@ -257,9 +300,9 @@ impl HandheldLauncher {
                     .child("sort by title (A-Z)"),
             )
             .child(
-                GameCarousel::new("games-carousel", self.sample_games.clone())
-                    .selected(sel)
-                    .with_focused(if cf { Some(sel) } else { None }),
+                GameCarousel::new("games-carousel", games.to_vec())
+                    .selected(sel.min(count.saturating_sub(1)))
+                    .with_focused(if cf { Some(sel.min(count.saturating_sub(1))) } else { None }),
             )
             .child(
                 div()
@@ -272,7 +315,7 @@ impl HandheldLauncher {
                         div()
                             .text_color(t.text_secondary)
                             .text_size(px(14.0))
-                            .child("You have 10 games"),
+                            .child(format!("You have {} games", count)),
                     )
                     .child(
                         div()
@@ -316,7 +359,11 @@ impl HandheldLauncher {
 pub fn init(input_rx: Option<mpsc::UnboundedReceiver<NavAction>>) -> Result<()> {
     log::info!("Initializing GPUI application");
 
-    gpui_platform::application().run(move |cx: &mut App| {
+    gpui_platform::application()
+        .with_assets(FileAssetSource {
+            base: std::env::current_dir().unwrap_or_default(),
+        })
+        .run(move |cx: &mut App| {
         gpui_component::init(cx);
 
         let options = gpui::WindowOptions {

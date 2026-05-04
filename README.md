@@ -19,3 +19,13 @@ we want to make it easy to play games on a windows handheld gaming device.
 No Login/Updates/Cloud features.
 
 only games and easy access to settings. with a nice UI. 
+
+
+
+
+AI Skills that I have used
+
+
+https://github.com/juliusbrussee/caveman#install
+https://github.com/actionbook/rust-skills
+https://github.com/longbridge/gpui-component/tree/main/.claude/skills

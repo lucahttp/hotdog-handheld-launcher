@@ -3,5 +3,5 @@
 pub mod tab_bar;
 pub mod button_hint;
 
-pub use tab_bar::TabBar;
 pub use button_hint::ButtonHintBar;
+// pub use tab_bar::TabBar; // Imported via crate::ui::components::tab_bar where needed
