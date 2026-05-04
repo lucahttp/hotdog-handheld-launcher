@@ -49,9 +49,7 @@ impl Styled for TileGrid {
 
 impl RenderOnce for TileGrid {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        // Layout:
-        // Left Column: 3 stacked MenuTiles
-        // Right Column: 1 HeroTile
+        // Layout: Left column with menu tiles, right column with hero/banner tiles
         
         let mut left_col = div().flex().flex_col().gap(px(8.0));
         let mut right_col = div().flex().flex_col().gap(px(8.0));
@@ -64,7 +62,7 @@ impl RenderOnce for TileGrid {
             
             if t.size == TileSize::MenuTile {
                 left_col = left_col.child(tile);
-            } else if t.size == TileSize::HeroTile {
+            } else {
                 right_col = right_col.child(tile);
             }
         }

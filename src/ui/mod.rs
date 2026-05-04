@@ -6,5 +6,5 @@ pub mod components;
 pub mod actions;
 
 pub use theme::theme;
-pub use tiles::{MetroTile, TileGrid, TileSize, TileData};
+pub use tiles::{MetroTile, TileGrid, TileSize, TileData, GameCarousel, GameItem};
 pub use components::{TabBar, ButtonHintBar};
