@@ -12,6 +12,9 @@ const TABS: &[&str] = &[
     "bing", "home", "social", "games", "tv & movies", "music", "apps", "settings",
 ];
 
+// Navigation actions for keyboard/gamepad
+actions!(launcher, [NavigateUp, NavigateDown, NavigateLeft, NavigateRight, SelectGame, Back]);
+
 /// Which section currently has focus
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FocusSection {
@@ -329,6 +332,25 @@ impl Render for HandheldLauncher {
                     .child(hero_content)
             )
             .child(ButtonHintBar::new("hint-bar"))
+            .key_context(NAV_CONTEXT)
+            .on_action(cx.listener(|this, action: &NavigateUp, _window, cx| {
+                this.handle_nav_action(NavAction::NavigateUp, cx);
+            }))
+            .on_action(cx.listener(|this, action: &NavigateDown, _window, cx| {
+                this.handle_nav_action(NavAction::NavigateDown, cx);
+            }))
+            .on_action(cx.listener(|this, action: &NavigateLeft, _window, cx| {
+                this.handle_nav_action(NavAction::NavigateLeft, cx);
+            }))
+            .on_action(cx.listener(|this, action: &NavigateRight, _window, cx| {
+                this.handle_nav_action(NavAction::NavigateRight, cx);
+            }))
+            .on_action(cx.listener(|this, action: &SelectGame, _window, cx| {
+                this.handle_nav_action(NavAction::Select, cx);
+            }))
+            .on_action(cx.listener(|this, action: &Back, _window, cx| {
+                this.handle_nav_action(NavAction::Back, cx);
+            }))
     }
 }
 
@@ -347,6 +369,9 @@ pub fn init(input_rx: Option<mpsc::UnboundedReceiver<NavAction>>) -> Result<()> 
 
     gpui_platform::application().run(move |cx: &mut App| {
         gpui_component::init(cx);
+        
+        // Bind keyboard keys for navigation
+        bind_navigation_keys(cx);
 
         let options = gpui::WindowOptions {
             titlebar: Some(gpui::TitlebarOptions {
@@ -385,4 +410,23 @@ pub fn init(input_rx: Option<mpsc::UnboundedReceiver<NavAction>>) -> Result<()> 
     });
 
     Ok(())
+}
+
+// Keyboard bindings for navigation
+const NAV_CONTEXT: &str = "HandheldLauncher";
+
+fn bind_navigation_keys(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("up", NavigateUp, Some(NAV_CONTEXT)),
+        KeyBinding::new("down", NavigateDown, Some(NAV_CONTEXT)),
+        KeyBinding::new("left", NavigateLeft, Some(NAV_CONTEXT)),
+        KeyBinding::new("right", NavigateRight, Some(NAV_CONTEXT)),
+        KeyBinding::new("enter", SelectGame, Some(NAV_CONTEXT)),
+        KeyBinding::new("escape", Back, Some(NAV_CONTEXT)),
+        // Alternative bindings
+        KeyBinding::new("w", NavigateUp, Some(NAV_CONTEXT)),
+        KeyBinding::new("s", NavigateDown, Some(NAV_CONTEXT)),
+        KeyBinding::new("a", NavigateLeft, Some(NAV_CONTEXT)),
+        KeyBinding::new("d", NavigateRight, Some(NAV_CONTEXT)),
+    ]);
 }

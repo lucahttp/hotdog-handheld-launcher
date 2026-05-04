@@ -110,6 +110,7 @@ impl RenderOnce for MetroTile {
                 .child(self.title)
         );
         
+        // Focus animation: scale up + glow when focused
         self.base
             .id(self.id)
             .track_focus(&self.focus_handle)
