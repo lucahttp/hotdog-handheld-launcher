@@ -1,7 +1,5 @@
 //! Focus Ring - Manages GPUI focus state for tiles
 
-use gpui::FocusHandle;
-
 /// Manages focus state for the tile grid
 pub struct FocusRing {
     /// Current focused tile index

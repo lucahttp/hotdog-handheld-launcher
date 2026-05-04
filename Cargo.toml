@@ -19,7 +19,7 @@ once_cell = "1.19"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
 windows-sys = { version = "0.52", features = ["Win32_System_Threading"] }
-windows = { version = "0.52", features = ["Management_Deployment", "ApplicationModel", "Foundation", "Foundation_Collections"] }
+windows = { version = "0.52", features = ["Management_Deployment", "ApplicationModel", "Foundation", "Foundation_Collections", "Storage"] }
 
 [dependencies.steamlocate]
 version = "2.0"

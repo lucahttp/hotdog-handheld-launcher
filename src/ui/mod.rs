@@ -3,6 +3,7 @@
 pub mod theme;
 pub mod tiles;
 pub mod components;
+pub mod actions;
 
 pub use theme::theme;
 pub use tiles::{MetroTile, TileGrid, TileSize, TileData};

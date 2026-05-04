@@ -1,18 +1,21 @@
 //! Tab Bar - Horizontal navigation tabs (header)
 
 use gpui::{
-    div, App, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, RenderOnce, StatefulInteractiveElement, StyleRefinement, Styled, Window,
-    px,
+    div, ClickEvent, ElementId, EventEmitter, InteractiveElement, IntoElement,
+    ParentElement, Render, StatefulInteractiveElement, StyleRefinement, Styled, Window, px,
+    Context,
 };
 use crate::ui::theme::theme;
+
+/// Event emitted when a tab is clicked
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TabSelectedEvent(pub usize);
 
 /// Navigation tab
 #[derive(Clone)]
 pub struct Tab {
     pub id: String,
     pub label: String,
-    pub is_active: bool,
 }
 
 impl Tab {
@@ -20,23 +23,16 @@ impl Tab {
         Self {
             id: id.to_string(),
             label: label.to_string(),
-            is_active: false,
         }
-    }
-    
-    pub fn active(mut self) -> Self {
-        self.is_active = true;
-        self
     }
 }
 
 /// Tab bar component (horizontal header)
-#[derive(IntoElement)]
 pub struct TabBar {
     id: ElementId,
-    base: Div,
     style: StyleRefinement,
     tabs: Vec<Tab>,
+    active_tab_index: usize,
 }
 
 impl TabBar {
@@ -52,57 +48,100 @@ impl TabBar {
             Tab::new("settings", "settings"),
         ];
         
-        let mut tabs = tabs.into_iter().map(|mut t| {
-            if t.id == active_tab {
-                t.is_active = true;
-            }
-            t
-        }).collect();
+        let active_tab_index = tabs.iter().position(|t| t.id == active_tab).unwrap_or(1);
         
         Self {
             id: id.into(),
-            base: div().flex().flex_row(),
             style: StyleRefinement::default(),
             tabs,
+            active_tab_index,
         }
+    }
+    
+    pub fn active_tab_index(&self) -> usize {
+        self.active_tab_index
+    }
+}
+
+impl Styled for TabBar {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        &mut self.style
+    }
+}
+
+impl Render for TabBar {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let t = theme();
+        let active_index = self.active_tab_index;
+        
+        div()
+            .id(self.id.clone())
+            .gap(px(32.0))
+            .pl(px(90.0))
+            .pt(px(60.0))
+            .pb(px(24.0))
+            .bg(t.background)
+            .items_end()
+            .flex()
+            .flex_row()
+            .children(self.tabs.iter_mut().enumerate().map(|(i, tab)| {
+                let is_active = i == active_index;
+                let text_color = if is_active { t.text_primary } else { t.text_inactive };
+                let font_size = if is_active { 48.0 } else { 32.0 };
+                let tab_id = tab.id.clone();
+                
+                div()
+                    .id(tab.id.clone())
+                    .text_color(text_color)
+                    .text_size(px(font_size))
+                    .child(tab.label.clone())
+                    .on_click(cx.listener(move |this: &mut TabBar, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<TabBar>| {
+                        // Use captured tab_id from the closure
+                        if let Some(index) = this.tabs.iter().position(|t| t.id == tab_id) {
+                            log::info!("TabBar emitting TabSelectedEvent({})", index);
+                            this.active_tab_index = index;
+                            cx.emit(TabSelectedEvent(index));
+                            cx.notify();
+                        }
+                    }))
+            }))
+    }
+}
+
+impl EventEmitter<TabSelectedEvent> for TabBar {}
+
+impl IntoElement for TabBar {
+    type Element = gpui::Stateful<gpui::Div>;
+    
+    fn into_element(self) -> Self::Element {
+        let t = theme();
+        
+        div()
+            .id(self.id)
+            .gap(px(32.0))
+            .pl(px(90.0))
+            .pt(px(60.0))
+            .pb(px(24.0))
+            .bg(t.background)
+            .items_end()
+            .flex()
+            .flex_row()
+            .children(self.tabs.into_iter().enumerate().map(|(i, tab)| {
+                let is_active = i == self.active_tab_index;
+                let text_color = if is_active { t.text_primary } else { t.text_inactive };
+                let font_size = if is_active { 48.0 } else { 32.0 };
+                
+                div()
+                    .id(tab.id.clone())
+                    .text_color(text_color)
+                    .text_size(px(font_size))
+                    .child(tab.label)
+            }))
     }
 }
 
 impl InteractiveElement for TabBar {
     fn interactivity(&mut self) -> &mut gpui::Interactivity {
-        self.base.interactivity()
-    }
-}
-
-impl StatefulInteractiveElement for TabBar {}
-
-impl Styled for TabBar {
-    fn style(&mut self) -> &mut StyleRefinement {
-        &mut self.style
-    }
-}
-
-impl RenderOnce for TabBar {
-    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        let t = theme();
-        
-        self.base
-            .id(self.id)
-            .gap(px(32.0))
-            .pl(px(90.0))  // Metro UI significant left margin
-            .pt(px(60.0))  // Top margin
-            .pb(px(24.0))  // Bottom margin before tiles
-            .bg(t.background)
-            .items_end()   // Align texts to bottom baseline
-            .children(self.tabs.into_iter().map(|tab| {
-                let text_color = if tab.is_active { t.text_primary } else { t.text_inactive };
-                let font_size = if tab.is_active { 48.0 } else { 32.0 };
-                
-                div()
-                    .text_color(text_color)
-                    .text_size(px(font_size))
-                    //.font_weight(gpui::FontWeight::LIGHT) // Metro uses light fonts
-                    .child(tab.label)
-            }))
+        panic!("InteractiveElement not implemented for TabBar - use Render/IntoElement instead")
     }
 }

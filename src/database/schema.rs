@@ -1,7 +1,7 @@
 //! Database schema - Table definitions and migrations
 
 use anyhow::Result;
-use rusqlite::{Connection, params};
+use rusqlite::Connection;
 
 /// Database schema version
 pub const SCHEMA_VERSION: i32 = 1;

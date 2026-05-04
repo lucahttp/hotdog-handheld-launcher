@@ -3,7 +3,8 @@
 use anyhow::Result;
 use gpui::*;
 use tokio::sync::mpsc;
-use crate::ui::{TabBar, ButtonHintBar, TileGrid, TileData, TileSize, theme};
+use crate::ui::{ButtonHintBar, TileGrid, TileData, TileSize, theme};
+use crate::ui::components::tab_bar::{TabBar, TabSelectedEvent};
 use crate::input::NavAction;
 use crate::scanner::{GameScanner, InstalledGame};
 
@@ -17,6 +18,7 @@ pub struct HandheldLauncher {
     active_tab_index: usize,
     games: Vec<InstalledGame>,
     is_scanning: bool,
+    tab_bar: Entity<TabBar>,
 }
 
 impl HandheldLauncher {
@@ -42,6 +44,18 @@ impl HandheldLauncher {
                 cx.notify();
             });
         }).detach();
+        
+        // Create TabBar entity
+        let tab_bar = cx.new(|cx| {
+            TabBar::new("tab-bar", "home")
+        });
+        
+        // Subscribe to tab selection events from TabBar
+        cx.subscribe(&tab_bar, |this, _tab_bar, event: &TabSelectedEvent, cx| {
+            log::info!("HandheldLauncher received TabSelectedEvent({})", event.0);
+            this.active_tab_index = event.0;
+            cx.notify();
+        }).detach();
 
         Self {
             focus_handle,
@@ -49,6 +63,7 @@ impl HandheldLauncher {
             active_tab_index: 1, // Start on "home"
             games: Vec::new(),
             is_scanning: true,
+            tab_bar,
         }
     }
 
@@ -65,6 +80,9 @@ impl HandheldLauncher {
                     self.active_tab_index += 1;
                     cx.notify();
                 }
+            }
+            NavAction::Select => {
+                // Gamepad A button - could launch game
             }
             _ => {}
         }
@@ -105,13 +123,22 @@ impl Render for HandheldLauncher {
             .flex()
             .flex_col()
             .justify_between()
-            .child(TabBar::new("tab-bar", current_tab))
+            .child(self.tab_bar.clone())
             .child(
                 div()
                     .flex_grow()
                     .child(TileGrid::new("tile-grid", tiles_to_render))
             )
             .child(ButtonHintBar::new("hint-bar"))
+    }
+}
+
+impl HandheldLauncher {
+    fn on_tab_click(&mut self, tab_id: &str, cx: &mut Context<Self>) {
+        if let Some(index) = TABS.iter().position(|&t| t == tab_id) {
+            self.active_tab_index = index;
+            cx.notify();
+        }
     }
 }
 

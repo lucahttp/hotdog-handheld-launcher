@@ -24,10 +24,8 @@ pub fn launch_game(options: LaunchOptions) -> Result<GameHandle> {
     let mut cmd = Command::new(&options.exe_path);
 
     // Set up detached process on Windows using raw Windows API constants
-    // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS | CREATE_NO_WINDOW
-    // 0x00000200 | 0x00000010 | 0x08000000 = 0x08000210
     #[cfg(windows)]
-    unsafe {
+    {
         use std::os::windows::process::CommandExt;
         const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
         const DETACHED_PROCESS: u32 = 0x00000008;
@@ -66,9 +64,9 @@ pub fn launch_game(options: LaunchOptions) -> Result<GameHandle> {
 /// Check if a process with the given PID is still running
 #[cfg(windows)]
 pub fn is_process_running(pid: u32) -> bool {
-    use windows_sys::Win32::System::Threading::{
-        CloseHandle, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
-    };
+    use windows_sys::Win32::System::Threading::OpenProcess;
+    use windows_sys::Win32::Foundation::CloseHandle;
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
 
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
