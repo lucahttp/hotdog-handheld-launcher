@@ -1,7 +1,7 @@
 //! Database module - SQLite storage for games and state
 
-mod schema;
-mod game_repository;
+pub mod schema;
+pub mod game_repository;
 mod app_repository;
 
 pub use schema::init_schema;

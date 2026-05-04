@@ -8,3 +8,4 @@ pub mod focus;
 pub mod ui;
 pub mod process;
 pub mod database;
+pub mod scanner;

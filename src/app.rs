@@ -2,43 +2,101 @@
 
 use anyhow::Result;
 use gpui::*;
+use tokio::sync::mpsc;
 use crate::ui::{TabBar, ButtonHintBar, TileGrid, TileData, TileSize, theme};
+use crate::input::NavAction;
+use crate::scanner::{GameScanner, InstalledGame};
+
+const TABS: &[&str] = &[
+    "bing", "home", "social", "games", "tv & movies", "music", "apps", "settings",
+];
 
 pub struct HandheldLauncher {
     focus_handle: FocusHandle,
     tiles: Vec<TileData>,
+    active_tab_index: usize,
+    games: Vec<InstalledGame>,
+    is_scanning: bool,
 }
 
 impl HandheldLauncher {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
-        
+
         let tiles = vec![
             TileData { title: "Open Tray".into(), icon_path: Some("assets/icons/disc.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
             TileData { title: "My Pins".into(), icon_path: Some("assets/icons/pin.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
             TileData { title: "Recent".into(), icon_path: Some("assets/icons/clock.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
             TileData { title: "Xbox 360: Metro UI".into(), icon_path: None, size: TileSize::HeroTile, focus_handle: cx.focus_handle() },
         ];
-        
-        // tiles[0].focus_handle.focus(cx);
+
+        // Context::spawn signature: AsyncFnOnce(WeakEntity<T>, &mut AsyncApp) -> R
+        cx.spawn(async move |this: WeakEntity<Self>, cx| {
+            let games = cx.background_executor().spawn(async move {
+                GameScanner::scan_all(None)
+            }).await;
+
+            let _ = this.update(cx, |launcher, cx| {
+                launcher.games = games;
+                launcher.is_scanning = false;
+                cx.notify();
+            });
+        }).detach();
 
         Self {
             focus_handle,
             tiles,
+            active_tab_index: 1, // Start on "home"
+            games: Vec::new(),
+            is_scanning: true,
+        }
+    }
+
+    pub fn handle_nav_action(&mut self, action: NavAction, cx: &mut Context<Self>) {
+        match action {
+            NavAction::PreviousTab => {
+                if self.active_tab_index > 0 {
+                    self.active_tab_index -= 1;
+                    cx.notify();
+                }
+            }
+            NavAction::NextTab => {
+                if self.active_tab_index < TABS.len() - 1 {
+                    self.active_tab_index += 1;
+                    cx.notify();
+                }
+            }
+            _ => {}
         }
     }
 }
 
 impl Render for HandheldLauncher {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = theme();
-        
-        let tiles_cloned: Vec<TileData> = self.tiles.iter().map(|td| TileData {
-            title: td.title.clone(),
-            icon_path: td.icon_path.clone(),
-            size: td.size.clone(),
-            focus_handle: td.focus_handle.clone(),
-        }).collect();
+
+        let current_tab = TABS[self.active_tab_index];
+        let tiles_to_render = if current_tab == "games" {
+            if self.is_scanning {
+                vec![TileData { title: "Scanning games...".into(), icon_path: None, size: TileSize::HeroTile, focus_handle: cx.focus_handle() }]
+            } else if self.games.is_empty() {
+                vec![TileData { title: "No games found".into(), icon_path: None, size: TileSize::HeroTile, focus_handle: cx.focus_handle() }]
+            } else {
+                self.games.iter().map(|g| TileData {
+                    title: g.name.clone().into(),
+                    icon_path: g.icon_path.clone().map(Into::into),
+                    size: TileSize::MenuTile,
+                    focus_handle: cx.focus_handle(),
+                }).collect()
+            }
+        } else {
+            self.tiles.iter().map(|td| TileData {
+                title: td.title.clone(),
+                icon_path: td.icon_path.clone(),
+                size: td.size.clone(),
+                focus_handle: td.focus_handle.clone(),
+            }).collect()
+        };
 
         div()
             .track_focus(&self.focus_handle)
@@ -47,23 +105,23 @@ impl Render for HandheldLauncher {
             .flex()
             .flex_col()
             .justify_between()
-            .child(TabBar::new("tab-bar", "home"))
+            .child(TabBar::new("tab-bar", current_tab))
             .child(
                 div()
                     .flex_grow()
-                    .child(TileGrid::new("tile-grid", tiles_cloned))
+                    .child(TileGrid::new("tile-grid", tiles_to_render))
             )
             .child(ButtonHintBar::new("hint-bar"))
     }
 }
 
 /// Initialize the GPUI application
-pub fn init() -> Result<()> {
+pub fn init(input_rx: Option<mpsc::UnboundedReceiver<NavAction>>) -> Result<()> {
     log::info!("Initializing GPUI application");
-    
+
     gpui_platform::application().run(move |cx: &mut App| {
         gpui_component::init(cx);
-        
+
         let options = gpui::WindowOptions {
             titlebar: Some(gpui::TitlebarOptions {
                 title: None,
@@ -76,14 +134,29 @@ pub fn init() -> Result<()> {
             })),
             ..Default::default()
         };
-        
+
         cx.open_window(options, |window, cx| {
-            let view = cx.new(|cx| HandheldLauncher::new(cx));
+            let view = cx.new(|cx| {
+                let launcher = HandheldLauncher::new(cx);
+
+                if let Some(mut rx) = input_rx {
+                    // Spawn input receiver loop inside the entity context
+                    // Context::spawn: AsyncFnOnce(WeakEntity<T>, &mut AsyncApp) -> R
+                    cx.spawn(async move |this: WeakEntity<HandheldLauncher>, cx| {
+                        while let Some(action) = rx.recv().await {
+                            let _ = this.update(cx, |view, cx| {
+                                view.handle_nav_action(action, cx);
+                            });
+                        }
+                    }).detach();
+                }
+
+                launcher
+            });
+
             cx.new(|cx| gpui_component::Root::new(view, window, cx))
         }).unwrap();
     });
-    
 
-    // gpui run loop doesn't return, but we need to satisfy the Result<()> signature
     Ok(())
 }

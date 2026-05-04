@@ -11,6 +11,7 @@ mod focus;
 mod ui;
 mod process;
 mod database;
+mod scanner;
 
 use anyhow::Result;
 

@@ -14,6 +14,8 @@ pub enum NavAction {
     Select,
     Back,
     Menu,
+    PreviousTab,
+    NextTab,
 }
 
 /// Direction for spatial navigation
@@ -29,24 +31,25 @@ pub enum Direction {
 pub struct InputBridge {
     gilrs: Arc<Mutex<Option<Gilrs>>>,
     event_tx: mpsc::UnboundedSender<NavAction>,
+    event_rx: Option<mpsc::UnboundedReceiver<NavAction>>,
 }
 
 impl InputBridge {
     /// Create a new input bridge
     pub fn new() -> Self {
         let gilrs = Gilrs::new().ok();
-        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         Self {
             gilrs: Arc::new(Mutex::new(gilrs)),
             event_tx,
+            event_rx: Some(event_rx),
         }
     }
 
     /// Get a receiver for navigation actions
-    pub fn take_receiver(&mut self) -> mpsc::UnboundedReceiver<NavAction> {
-        let (_tx, rx) = mpsc::unbounded_channel();
-        rx
+    pub fn take_receiver(&mut self) -> Option<mpsc::UnboundedReceiver<NavAction>> {
+        self.event_rx.take()
     }
 
     /// Check if a gamepad is connected
@@ -68,6 +71,7 @@ impl InputBridge {
 
         while let Some(event) = gilrs.next_event() {
             if let Some(action) = Self::map_event(event) {
+                let _ = self.event_tx.send(action);
                 return Some(action);
             }
         }
@@ -85,6 +89,8 @@ impl InputBridge {
             EventType::ButtonPressed(Button::South, _) => Some(NavAction::Select), // Xbox A
             EventType::ButtonPressed(Button::East, _) => Some(NavAction::Back),    // Xbox B
             EventType::ButtonPressed(Button::Start, _) => Some(NavAction::Menu),
+            EventType::ButtonPressed(Button::LeftTrigger, _) => Some(NavAction::PreviousTab), // LB
+            EventType::ButtonPressed(Button::RightTrigger, _) => Some(NavAction::NextTab),    // RB
             _ => None,
         }
     }
