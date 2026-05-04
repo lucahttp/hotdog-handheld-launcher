@@ -13,7 +13,7 @@ use anyhow::Result;
 use gpui::*;
 use tokio::sync::mpsc;
 
-use crate::navigation::{FocusState, NavEffect, FocusSection};
+use crate::navigation::{NavEngine, NavEffect, FocusSection, NavCtx};
 use crate::ui::{ButtonHintBar, TileGrid, TileData, TileSize, theme, GameCarousel, GameItem};
 use crate::ui::components::tab_bar::{TabBar, TabSelectedEvent};
 use crate::input::NavAction;
@@ -112,8 +112,8 @@ pub struct HandheldLauncher {
     games: Vec<crate::scanner::InstalledGame>,
     is_scanning: bool,
     tab_bar: Entity<TabBar>,
-    /// Unified navigation state — single source of truth for focus.
-    nav: FocusState,
+    /// Unified navigation engine — focus state + per-tab memory + view stack.
+    nav: NavEngine,
     /// Cached game items (avoids re-allocating each render).
     sample_games: Vec<GameItem>,
 }
@@ -147,13 +147,8 @@ impl HandheldLauncher {
 
         cx.subscribe(&tab_bar, |this, _tb, event: &TabSelectedEvent, cx| {
             log::info!("TabBar clicked → tab {}", event.0);
-            this.active_tab = event.0;
-            this.nav.tab = event.0;
-            // Clamp carousel when switching to games tab
-            if event.0 == GAMES_TAB {
-                let count = this.display_games().len();
-                this.nav.carousel = this.nav.carousel.min(count.saturating_sub(1));
-            }
+            this.nav.switch_to_tab(event.0);
+            this.active_tab = this.nav.active_tab;
             cx.notify();
         }).detach();
 
@@ -164,26 +159,14 @@ impl HandheldLauncher {
             games: Vec::new(),
             is_scanning: true,
             tab_bar,
-            nav: FocusState::home(),
+            nav: NavEngine::new(1), // start at "home" tab
             sample_games,
         }
     }
 
     /// Entry point for ALL navigation input (keyboard + gamepad).
     pub fn handle_nav_action(&mut self, action: NavAction, cx: &mut Context<Self>) {
-        // Guard: only allow Hero <-> GamesCarousel transitions on the games tab
-        if self.active_tab != GAMES_TAB {
-            if (action == NavAction::NavigateDown && self.nav.section() == FocusSection::Hero)
-                || (action == NavAction::NavigateUp && self.nav.section() == FocusSection::GamesCarousel)
-            {
-                cx.notify();
-                return;
-            }
-        }
-
-        let effect = self.nav.handle(action);
-
-        // Clamp carousel index to actual game count (dynamic, not hardcoded CAROUSEL_SIZE)
+        // Build context for the state machine
         let game_count = if self.active_tab == GAMES_TAB {
             if !self.is_scanning && !self.games.is_empty() {
                 self.games.len()
@@ -193,11 +176,18 @@ impl HandheldLauncher {
         } else {
             0
         };
-        if game_count > 0 {
-            self.nav.carousel = self.nav.carousel.min(game_count.saturating_sub(1));
-        }
+        let ctx = if self.active_tab == GAMES_TAB && game_count > 0 {
+            NavCtx::with_carousel(game_count)
+        } else {
+            NavCtx::no_carousel()
+        };
 
-        // Apply side effects from the navigation action
+        let effect = self.nav.handle(action, ctx);
+
+        // Sync active_tab from NavEngine after handle
+        self.active_tab = self.nav.active_tab;
+
+        // Apply side effects
         match effect {
             NavEffect::SwitchTab(tab) => {
                 self.active_tab = tab;
@@ -342,7 +332,7 @@ impl HandheldLauncher {
     fn render_games(&self) -> impl IntoElement {
         let t = theme();
         let cf = self.nav.carousel_focused();
-        let sel = self.nav.carousel;
+        let sel = self.nav.focus.carousel;
         let games = self.display_games();
         let count = games.len();
 

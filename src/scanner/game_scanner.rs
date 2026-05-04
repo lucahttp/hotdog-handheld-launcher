@@ -37,14 +37,32 @@ static EXCLUDED_EXE_NAMES: &[&str] = &[
     "ue4prereqsetup", "x64setup", "x86setup",
 ];
 
+/// Registry entries that should never appear as games.
 static EXCLUDED_REGISTRY_NAMES: &[&str] = &[
-    "microsoft ", "office", "onedrive", "windows ", "security ", "defender",
+    // OS & drivers
+    "microsoft ", "microsoft 365", "office", "onedrive", "windows ", "security ", "defender",
     "intel", "nvidia", "amd software", "chipset", "bluetooth", "realtek",
-    "audio", "network", "driver", "update", "vanguard", "firefox", "chrome",
-    "edge", "browser", "adobe", "java", "python", "node.js", "docker",
-    "visual studio", "git", "7-zip", "heidi", "freecad", "gigabyte",
+    "audio", "network", "driver", "update",
+    // Anti-cheat / anti-virus
+    "vanguard", "easyanticheat", "battleye",
+    // Browsers
+    "firefox", "chrome", "edge", "browser", "brave", "opera", "vivaldi", "torch",
+    // Multimedia / design
+    "adobe", "java", "python", "node.js", "docker", "git",
+    "visual studio", "7-zip", "heidi", "freecad", "gigabyte", "gbt_",
     "bambu studio", "minimax agent", "newtek", "opencad", "speedhq",
-    "zoo design", "steamworks common", "steamworks shared",
+    "zoo design", "steamworks",
+    // Runtimes & SDKs
+    "redistributable", "runtime", "sdk", "directx", "vc_redist",
+    "vcredist", "dotnet", "framework", "visual c++",
+    // Other known non-games
+    "keyshot", "twain", "canon", "epson", "logitech", "obs studio",
+    "discord", "telegram", "whatsapp", "slack", "teams", "zoom",
+    "wps office", "libreoffice", "openoffice", "notepad", "powertoys",
+    "everything", "greenshot", "sharex", "obsidian", "notion",
+    "rider", "clion", "idea", "webstorm", "pycharm", "goland",
+    "vmware", "virtualbox", "qemu", "wsl", "docker desktop",
+    "hub", "desktop github",
 ];
 
 // ── Executable finder ─────────────────────────────────────────────────
@@ -134,18 +152,28 @@ impl GameScanner {
             if let Ok(libraries) = steamdir.libraries() {
                 for library in libraries.flatten() {
                     for app in library.apps().flatten() {
+                        let name = app.name.clone().unwrap_or_else(|| String::new());
+                        // Skip known non-game Steam entries
+                        let lower = name.to_lowercase();
+                        if lower.contains("steamworks") || lower.contains("redistributable")
+                            || lower.contains("runtime") || lower.contains("sdk")
+                            || lower == "proton" || lower == "steam linux runtime"
+                        {
+                            continue;
+                        }
+
                         let install_dir = library.resolve_app_dir(&app).to_string_lossy().into_owned();
                         let app_id_str = format!("{}", app.app_id);
-                        let launch = format!("steam://rungameid/{}", app_id_str);
+                        let steam_url = format!("steam://rungameid/{}", app_id_str);
                         let exe = find_game_executable(&install_dir);
 
                         games.push(InstalledGame {
-                            name: app.name.clone().unwrap_or_else(|| "Unknown Steam Game".to_string()),
+                            name,
                             platform: Platform::Steam,
                             icon_path: None,
                             install_dir: install_dir.clone(),
                             app_id: Some(app_id_str),
-                            launch_command: exe.or(Some(launch)),
+                            launch_command: exe.or(Some(steam_url)),
                         });
                     }
                 }
@@ -344,6 +372,11 @@ impl GameScanner {
                             } else {
                                 None
                             };
+
+                            // Only include registry entries where we found an actual .exe
+                            if launch_command.is_none() {
+                                continue;
+                            }
 
                             games.push(InstalledGame {
                                 name: display_name,
