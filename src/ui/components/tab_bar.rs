@@ -46,7 +46,10 @@ impl TabBar {
             Tab::new("home", "home"),
             Tab::new("social", "social"),
             Tab::new("games", "games"),
+            Tab::new("tv & movies", "tv & movies"),
+            Tab::new("music", "music"),
             Tab::new("apps", "apps"),
+            Tab::new("settings", "settings"),
         ];
         
         let mut tabs = tabs.into_iter().map(|mut t| {
@@ -86,8 +89,8 @@ impl RenderOnce for TabBar {
         self.base
             .id(self.id)
             .gap(px(32.0))
-            .pl(px(64.0))  // Metro UI significant left margin
-            .pt(px(48.0))  // Top margin
+            .pl(px(90.0))  // Metro UI significant left margin
+            .pt(px(60.0))  // Top margin
             .pb(px(24.0))  // Bottom margin before tiles
             .bg(t.background)
             .items_end()   // Align texts to bottom baseline

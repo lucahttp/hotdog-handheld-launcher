@@ -9,6 +9,7 @@ use super::metro_tile::{MetroTile, TileSize};
 
 pub struct TileData {
     pub title: String,
+    pub icon_path: Option<String>,
     pub size: TileSize,
     pub focus_handle: FocusHandle,
 }
@@ -19,7 +20,6 @@ pub struct TileGrid {
     base: Div,
     style: StyleRefinement,
     pub tiles: Vec<TileData>,
-    pub columns: usize,
 }
 
 impl TileGrid {
@@ -29,7 +29,6 @@ impl TileGrid {
             base: div(),
             style: StyleRefinement::default(),
             tiles,
-            columns: 3, // Default column count
         }
     }
 }
@@ -50,44 +49,33 @@ impl Styled for TileGrid {
 
 impl RenderOnce for TileGrid {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        // We will hardcode a Metro-style layout using nested flex columns/rows
-        // Assuming self.tiles has exactly 5 tiles for the Home view:
-        // 0: Large2x2 (Main Game)
-        // 1: Wide2x1 (Resume/Last Played)
-        // 2: Small1x1 (Settings)
-        // 3: Small1x1 (Store)
-        // 4: Tall1x2 (Ad/Highlight)
+        // Layout:
+        // Left Column: 3 stacked MenuTiles
+        // Right Column: 1 HeroTile
         
-        let t0 = self.tiles.get(0).unwrap();
-        let t1 = self.tiles.get(1).unwrap();
-        let t2 = self.tiles.get(2).unwrap();
-        let t3 = self.tiles.get(3).unwrap();
-        let t4 = self.tiles.get(4).unwrap();
+        let mut left_col = div().flex().flex_col().gap(px(8.0));
+        let mut right_col = div().flex().flex_col().gap(px(8.0));
+        
+        for (i, t) in self.tiles.iter().enumerate() {
+            let mut tile = MetroTile::new(i, &t.title, t.focus_handle.clone()).size(t.size);
+            if let Some(path) = &t.icon_path {
+                tile = tile.icon(path);
+            }
+            
+            if t.size == TileSize::MenuTile {
+                left_col = left_col.child(tile);
+            } else if t.size == TileSize::HeroTile {
+                right_col = right_col.child(tile);
+            }
+        }
 
         self.base
             .id(self.id)
             .flex()
             .flex_row()
-            .gap(px(10.0))
-            .pl(px(64.0)) // align with pivot
-            .child(
-                // Col 1: Large Tile
-                MetroTile::new(0, &t0.title, t0.focus_handle.clone()).size(t0.size)
-            )
-            .child(
-                // Col 2: Stacked
-                div().flex().flex_col().gap(px(10.0))
-                    .child(MetroTile::new(1, &t1.title, t1.focus_handle.clone()).size(t1.size))
-                    .child(
-                        div().flex().flex_row().gap(px(10.0))
-                            .child(MetroTile::new(2, &t2.title, t2.focus_handle.clone()).size(t2.size))
-                            .child(MetroTile::new(3, &t3.title, t3.focus_handle.clone()).size(t3.size))
-                    )
-            )
-            .child(
-                // Col 3: Tall Tile
-                div().flex().flex_col().gap(px(10.0))
-                    .child(MetroTile::new(4, &t4.title, t4.focus_handle.clone()).size(t4.size))
-            )
+            .gap(px(16.0))
+            .pl(px(90.0)) // align with navbar
+            .child(left_col)
+            .child(right_col)
     }
 }

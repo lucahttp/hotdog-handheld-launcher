@@ -31,7 +31,7 @@ impl GridNavigator {
     pub fn new(grid: &TileGrid) -> Self {
         Self {
             focused_index: 0, // Start with first tile focused
-            columns: grid.columns,
+            columns: 2, // Hardcoded for Metro UI layout (left and right columns)
             tile_sizes: grid.tiles.iter().map(|t| t.size).collect(),
         }
     }
@@ -158,8 +158,11 @@ mod tests {
     #[test]
     fn test_basic_navigation() {
         // Create a simple 3x3 grid (9 tiles)
-        let grid = TileGrid::new();
-        let mut nav = GridNavigator::new(&grid);
+        let mut nav = GridNavigator {
+            focused_index: 0,
+            columns: 3,
+            tile_sizes: vec![TileSize::Small1x1; 9],
+        };
         
         assert_eq!(nav.focused(), 0); // Start at index 0
         
@@ -174,8 +177,11 @@ mod tests {
     
     #[test]
     fn test_edge_wrap_right() {
-        let grid = TileGrid::new();
-        let mut nav = GridNavigator::new(&grid);
+        let mut nav = GridNavigator {
+            focused_index: 0,
+            columns: 4,
+            tile_sizes: vec![TileSize::Small1x1; 16],
+        };
         
         // Set to last column (column 3 in a 4-column grid)
         nav.set_focused(3);

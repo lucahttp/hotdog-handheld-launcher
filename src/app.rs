@@ -14,11 +14,10 @@ impl HandheldLauncher {
         let focus_handle = cx.focus_handle();
         
         let tiles = vec![
-            TileData { title: "Main Game".into(), size: TileSize::Large2x2, focus_handle: cx.focus_handle() },
-            TileData { title: "Resume".into(), size: TileSize::Wide2x1, focus_handle: cx.focus_handle() },
-            TileData { title: "Settings".into(), size: TileSize::Small1x1, focus_handle: cx.focus_handle() },
-            TileData { title: "Store".into(), size: TileSize::Small1x1, focus_handle: cx.focus_handle() },
-            TileData { title: "Ad/Highlight".into(), size: TileSize::Tall1x2, focus_handle: cx.focus_handle() },
+            TileData { title: "Open Tray".into(), icon_path: Some("assets/icons/disc.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
+            TileData { title: "My Pins".into(), icon_path: Some("assets/icons/pin.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
+            TileData { title: "Recent".into(), icon_path: Some("assets/icons/clock.svg".into()), size: TileSize::MenuTile, focus_handle: cx.focus_handle() },
+            TileData { title: "Xbox 360: Metro UI".into(), icon_path: None, size: TileSize::HeroTile, focus_handle: cx.focus_handle() },
         ];
         
         // tiles[0].focus_handle.focus(cx);
@@ -36,6 +35,7 @@ impl Render for HandheldLauncher {
         
         let tiles_cloned: Vec<TileData> = self.tiles.iter().map(|td| TileData {
             title: td.title.clone(),
+            icon_path: td.icon_path.clone(),
             size: td.size.clone(),
             focus_handle: td.focus_handle.clone(),
         }).collect();
