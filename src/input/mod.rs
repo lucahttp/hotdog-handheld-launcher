@@ -2,7 +2,7 @@
 
 pub mod input_bridge;
 
-pub use input_bridge::{Direction, InputBridge, NavAction};
+pub use input_bridge::{InputBridge, NavAction};
 
 /// Start the input polling loop in a background task
 pub fn start_input_loop(mut bridge: InputBridge) -> tokio::task::JoinHandle<()> {

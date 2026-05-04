@@ -26,6 +26,8 @@ pub struct MetroTile {
     icon_path: Option<String>,
     tile_size: TileSize,
     focus_handle: FocusHandle,
+    /// Override focus state (for keyboard navigation - None = use GPUI focus)
+    is_focused_override: Option<bool>,
 }
 
 impl MetroTile {
@@ -38,6 +40,7 @@ impl MetroTile {
             icon_path: None,
             tile_size: TileSize::Small1x1,
             focus_handle,
+            is_focused_override: None,
         }
     }
     
@@ -48,6 +51,12 @@ impl MetroTile {
 
     pub fn icon(mut self, path: &str) -> Self {
         self.icon_path = Some(path.to_string());
+        self
+    }
+    
+    /// Set focus state manually (for keyboard navigation)
+    pub fn with_focus(mut self, is_focused: bool) -> Self {
+        self.is_focused_override = Some(is_focused);
         self
     }
 }
@@ -70,7 +79,8 @@ impl RenderOnce for MetroTile {
     fn render(self, window: &mut Window, _cx: &mut App) -> impl IntoElement {
         let t = theme();
         
-        let is_focused = self.focus_handle.is_focused(window);
+        // Use keyboard navigation focus override if set, otherwise use GPUI focus
+        let is_focused = self.is_focused_override.unwrap_or_else(|| self.focus_handle.is_focused(window));
         
         let (width, height) = match self.tile_size {
             TileSize::Small1x1 => (150.0, 150.0),

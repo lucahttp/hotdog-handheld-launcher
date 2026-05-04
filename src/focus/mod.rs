@@ -1,7 +1,7 @@
 //! Focus management - Spatial navigation and focus states
+//!
+//! These modules are available for future spatial navigation features.
+//! Current navigation logic lives in `crate::navigation`.
 
-mod grid_navigator;
-mod focus_ring;
-
-pub use grid_navigator::{GridNavigator, Direction, Position};
-pub use focus_ring::FocusRing;
+pub mod grid_navigator;
+pub mod focus_ring;

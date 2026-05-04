@@ -4,6 +4,7 @@
 //! on Windows handheld devices with Xbox 360 Metro aesthetics.
 
 mod app;
+mod navigation;
 mod daemon;
 mod shell;
 mod input;

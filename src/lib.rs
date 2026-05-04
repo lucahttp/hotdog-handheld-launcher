@@ -1,5 +1,6 @@
 //! Handheld Launcher Library
 
+pub mod navigation;
 pub mod app;
 pub mod daemon;
 pub mod shell;

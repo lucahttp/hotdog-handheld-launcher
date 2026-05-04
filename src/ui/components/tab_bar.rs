@@ -33,6 +33,8 @@ pub struct TabBar {
     style: StyleRefinement,
     tabs: Vec<Tab>,
     active_tab_index: usize,
+    /// Which tab index is keyboard-focused (for visual highlight)
+    focused_tab_index: Option<usize>,
 }
 
 impl TabBar {
@@ -55,9 +57,26 @@ impl TabBar {
             style: StyleRefinement::default(),
             tabs,
             active_tab_index,
+            focused_tab_index: None,
         }
     }
     
+    /// Set which tab is keyboard-focused (for visual highlight)
+    pub fn with_focused_tab(mut self, index: Option<usize>) -> Self {
+        self.focused_tab_index = index;
+        self
+    }
+
+    /// Set focused tab via mutable reference (for use with Entity)
+    pub fn set_focused_tab(&mut self, index: Option<usize>) {
+        self.focused_tab_index = index;
+    }
+
+    /// Set active tab via mutable reference (for use with Entity)
+    pub fn set_active_tab(&mut self, index: usize) {
+        self.active_tab_index = index;
+    }
+
     pub fn active_tab_index(&self) -> usize {
         self.active_tab_index
     }
@@ -73,6 +92,7 @@ impl Render for TabBar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = theme();
         let active_index = self.active_tab_index;
+        let focused_index = self.focused_tab_index;
         
         div()
             .id(self.id.clone())
@@ -86,7 +106,10 @@ impl Render for TabBar {
             .flex_row()
             .children(self.tabs.iter_mut().enumerate().map(|(i, tab)| {
                 let is_active = i == active_index;
-                let text_color = if is_active { t.text_primary } else { t.text_inactive };
+                let is_focused = focused_index == Some(i);
+                // Show focus highlight when keyboard-focused (even if not active tab)
+                let is_highlighted = is_active || is_focused;
+                let text_color = if is_highlighted { t.text_primary } else { t.text_inactive };
                 let font_size = if is_active { 48.0 } else { 32.0 };
                 let tab_id = tab.id.clone();
                 
@@ -94,9 +117,10 @@ impl Render for TabBar {
                     .id(tab.id.clone())
                     .text_color(text_color)
                     .text_size(px(font_size))
+                    .border(if is_focused { px(4.0) } else { px(0.0) })
+                    .border_color(gpui::white())
                     .child(tab.label.clone())
                     .on_click(cx.listener(move |this: &mut TabBar, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<TabBar>| {
-                        // Use captured tab_id from the closure
                         if let Some(index) = this.tabs.iter().position(|t| t.id == tab_id) {
                             log::info!("TabBar emitting TabSelectedEvent({})", index);
                             this.active_tab_index = index;

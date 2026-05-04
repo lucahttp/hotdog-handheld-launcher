@@ -5,8 +5,8 @@ pub mod game_repository;
 mod app_repository;
 
 pub use schema::init_schema;
-pub use game_repository::{GameRepository, Game};
-pub use app_repository::{AppRepository, AppState};
+pub use game_repository::GameRepository;
+pub use app_repository::AppRepository;
 
 use rusqlite::Connection;
 use std::path::PathBuf;

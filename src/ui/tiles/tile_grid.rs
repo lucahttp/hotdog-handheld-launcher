@@ -20,6 +20,8 @@ pub struct TileGrid {
     base: Div,
     style: StyleRefinement,
     pub tiles: Vec<TileData>,
+    /// Which tile index is currently focused (passed from app navigation state)
+    focused_index: Option<usize>,
 }
 
 impl TileGrid {
@@ -29,7 +31,14 @@ impl TileGrid {
             base: div(),
             style: StyleRefinement::default(),
             tiles,
+            focused_index: None,
         }
+    }
+    
+    /// Set which tile index is focused (for keyboard navigation visual feedback)
+    pub fn with_focused(mut self, index: Option<usize>) -> Self {
+        self.focused_index = index;
+        self
     }
 }
 
@@ -51,11 +60,15 @@ impl RenderOnce for TileGrid {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
         // Layout: Left column with menu tiles, right column with hero/banner tiles
         
+        let focused = self.focused_index;
         let mut left_col = div().flex().flex_col().gap(px(8.0));
         let mut right_col = div().flex().flex_col().gap(px(8.0));
         
         for (i, t) in self.tiles.iter().enumerate() {
-            let mut tile = MetroTile::new(i, &t.title, t.focus_handle.clone()).size(t.size);
+            let is_tile_focused = focused == Some(i);
+            let mut tile = MetroTile::new(i, &t.title, t.focus_handle.clone())
+                .size(t.size)
+                .with_focus(is_tile_focused);
             if let Some(path) = &t.icon_path {
                 tile = tile.icon(path);
             }

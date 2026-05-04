@@ -3,5 +3,5 @@
 mod launcher;
 mod lifecycle;
 
-pub use launcher::{is_process_running, launch_game, GameHandle, LaunchOptions};
-pub use lifecycle::{LifecycleManager, LifecycleState};
+pub use launcher::{launch_game, LaunchOptions};
+// TODO: Add lifecycle management when needed
