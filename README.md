@@ -29,3 +29,14 @@ AI Skills that I have used
 https://github.com/juliusbrussee/caveman#install
 https://github.com/actionbook/rust-skills
 https://github.com/longbridge/gpui-component/tree/main/.claude/skills
+
+
+
+# Apply optimizations (requiere admin)
+.\optimizations\gaming-mode.ps1
+
+# Revertir
+.\optimizations\gaming-mode.ps1 -Rollback
+
+# Vista previa sin cambios
+.\optimizations\gaming-mode.ps1 -DryRun
